@@ -1,24 +1,39 @@
 import streamlit as st
+import pandas as pd
 
 st.set_page_config(page_title="NOX", page_icon="🌑")
 
-st.title("🌑 NOX")
-st.write("Le baromètre de la hype. Note les tendances !")
+# --- CONNEXION AU GOOGLE SHEET ---
+# Ton lien actuel avec la correction pour l'export CSV
+sheet_id = "16bSqmFKnS-Fex_-BP2pr7GaGqnd-gdZ2Q6rtqstddSc"
+csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
-# Tes premiers objets
-objets = [
-    {"nom": "GTA VI", "image": "https://media.rockstargames.com/rockstargames-newsite/img/global/games/fob/640/GTAVI.jpg"},
-    {"nom": "Avatar: Fire and Ash", "image": "https://img.vgc.co/media/2024/08/avatar-fire-and-ash.jpg"}
-]
+# Fonction pour charger les données
+def load_data():
+    # On ajoute on-error pour éviter que l'app plante si une ligne est vide
+    return pd.read_csv(csv_url).dropna(subset=['Nom', 'Image'])
 
-for obj in objets:
-    with st.container():
-        st.image(obj["image"], use_container_width=True)
-        st.subheader(obj["nom"])
-        # Le slider (curseur) comme sur ta photo !
-        note = st.slider(f"Nox-Score pour {obj['nom']}", 0, 10, 5, key=obj['nom'])
-        if st.button(f"Valider la note : {note}/10", key="btn_"+obj['nom']):
-            st.balloons() # Petit effet de fête
-            st.success(f"Note enregistrée pour {obj['nom']} !")
+try:
+    df = load_data()
+
+    st.title("🌑 NOX")
+    st.write("Donne ton avis sur les dernières tendances.")
+
+    for index, row in df.iterrows():
+        # Affiche l'image avec une gestion d'erreur si le lien est mort
+        try:
+            st.image(row['Image'], use_container_width=True)
+        except:
+            st.warning(f"Image introuvable pour {row['Nom']}")
+            
+        st.subheader(row['Nom'])
+        
+        note = st.slider(f"Nox-Score", 0, 10, 5, key=f"slider_{index}")
+        
+        if st.button(f"Voter pour {row['Nom']}", key=f"btn_{index}"):
+            st.balloons()
+            st.success(f"Tu as mis {note}/10 !")
         st.divider()
-      
+
+except Exception as e:
+    st.error("⚠️ Erreur de lecture")
