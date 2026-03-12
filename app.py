@@ -20,7 +20,8 @@ try:
     st.title("🌑 NOX")
     st.write("Le baromètre de la hype.")
 
-        for index, row in df.iterrows():
+    # La ligne ci-dessous doit avoir exactement 4 espaces de décalage par rapport au bord
+    for index, row in df.iterrows():
         nom = row["Nom de l'objet"]
         image_url = row["Lien vidéo (ou photo)"]
         description = row["Description courte"]
@@ -34,12 +35,10 @@ try:
             st.subheader(nom)
             st.write(f"*{description}*")
 
-            # --- LOGIQUE DU CURSEUR ET DU BOUTON (BIEN DÉCALÉ) ---
+            # --- LOGIQUE SANS BALLONS ---
             if index in st.session_state.votes:
-                # Si déjà voté : juste le score en vert
                 st.success(f"Ton Nox-Score : {st.session_state.votes[index]}/10 ✅")
             else:
-                # Si pas encore voté : curseur + bouton
                 note = st.slider(f"Note pour {nom}", 0, 10, 5, key=f"s_{index}")
                 if st.button(f"Valider {note}/10", key=f"b_{index}"):
                     st.session_state.votes[index] = note
@@ -47,8 +46,5 @@ try:
             
             st.divider()
 
-
 except Exception as e:
-    st.error("Erreur de lecture. Vérifie que ton Sheet est bien en 'Tous les utilisateurs disposant du lien'.")
-    # Pour t'aider à débugger si ça plante encore :
-    # st.write(e) 
+    st.error("Erreur de lecture.")
