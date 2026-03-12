@@ -20,36 +20,31 @@ try:
     st.title("🌑 NOX")
     st.write("Le baromètre de la hype.")
 
-    for index, row in df.iterrows():
-        # On utilise exactement les noms de ta capture d'écran
+        for index, row in df.iterrows():
         nom = row["Nom de l'objet"]
         image_url = row["Lien vidéo (ou photo)"]
         description = row["Description courte"]
 
         with st.container():
-            # Affichage de l'image
             try:
                 st.image(image_url, use_container_width=True)
             except:
                 st.write("⚠️ Image non disponible")
-            
+
             st.subheader(nom)
             st.write(f"*{description}*")
+
+            # --- LOGIQUE DU CURSEUR ET DU BOUTON (BIEN DÉCALÉ) ---
+            if index in st.session_state.votes:
+                # Si déjà voté : juste le score en vert
+                st.success(f"Ton Nox-Score : {st.session_state.votes[index]}/10 ✅")
+            else:
+                # Si pas encore voté : curseur + bouton
+                note = st.slider(f"Note pour {nom}", 0, 10, 5, key=f"s_{index}")
+                if st.button(f"Valider {note}/10", key=f"b_{index}"):
+                    st.session_state.votes[index] = note
+                    st.rerun()
             
-                        # Slider de note
-            note = st.slider(f"Note pour {nom}", 0, 10, 5, key=f"s_{index}")
-            
-            # --- LOGIQUE DU CURSEUR ET DU BOUTON ---
-        if index in st.session_state.votes:
-            # Si déjà voté : on affiche seulement le résultat en vert, pas de curseur
-            st.success(f"Ton Nox-Score : {st.session_state.votes[index]}/10 ✅")
-        else:
-            # Si pas encore voté : on affiche le curseur et le bouton
-            note = st.slider(f"Note pour {nom}", 0, 10, 5, key=f"s_{index}")
-            
-            if st.button(f"Valider {note}/10", key=f"b_{index}"):
-                st.session_state.votes[index] = note
-                st.rerun()
             st.divider()
 
 
