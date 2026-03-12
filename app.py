@@ -1,71 +1,125 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-from google_auth_oauthlib.flow import Flow
+import hashlib
+import random
+import smtplib
+from email.message import EmailMessage
 
-# 1. CONFIGURATION
-st.set_page_config(page_title="NOX Project", layout="wide")
+# --- CONFIGURATION DE LA PAGE ---
+st.set_page_content(page_title="NOX Project", layout="wide")
 
-# 2. RÉCUPÉRATION DES SECRETS
-CLIENT_ID = st.secrets["google_client_id"]
-CLIENT_SECRET = st.secrets["google_client_secret"]
-REDIRECT_URI = "https://nox-project-xxwo8gphqmfphkndnksaqn.streamlit.app/"
+# Connexion à Google Sheets (utilise le JSON des secrets)
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-# 3. CONFIGURATION DU FLUX GOOGLE
-client_config = {
-    "web": {
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-    }
-}
+# --- FONCTIONS DE SÉCURITÉ ---
+def hash_password(password):
+    """Crypte le mot de passe pour ne pas le lire en clair dans le Sheet"""
+    return hashlib.sha256(str.encode(password)).hexdigest()
 
-# 4. GESTION DE LA SESSION
-if 'connected' not in st.session_state:
-    st.session_state.connected = False
+def send_otp(target_email, code):
+    """Envoie le code de vérification par mail"""
+    msg = EmailMessage()
+    msg.set_content(f"Ton code de validation NOX est : {code}")
+    msg['Subject'] = f"{code} est ton code NOX"
+    msg['From'] = st.secrets["EMAIL_SENDER"]
+    msg['To'] = target_email
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(st.secrets["EMAIL_SENDER"], st.secrets["EMAIL_PASSWORD"])
+            smtp.send_message(msg)
+        return True
+    except Exception as e:
+        st.error(f"Erreur d'envoi de mail : {e}")
+        return False
 
-# --- LOGIQUE DE CONNEXION ---
-def get_login_url():
-    flow = Flow.from_client_config(
-        client_config,
-        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-        redirect_uri=REDIRECT_URI
-    )
-    auth_url, _ = flow.authorization_url(prompt='select_account')
-    return auth_url
+# --- GESTION DE LA SESSION ---
+if 'user' not in st.session_state:
+    st.session_state.user = None
 
-# --- SIDEBAR ---
+# --- BARRE LATÉRALE ---
 with st.sidebar:
-    st.image("https://raw.githubusercontent.com/yolafi/Nox-project/main/Sans%20titre%203_20260312145229.png", width=80)
-    st.title("NOX Account")
-    
-    if not st.session_state.connected:
-        login_url = get_login_url()
-        # On utilise un lien stylisé en bouton
-        st.markdown(f'''
-            <a href="{login_url}" target="_self" style="text-decoration: none;">
-                <div style="background-color: #df4b3b; color: white; padding: 10px; text-align: center; border-radius: 5px;">
-                    Se connecter avec Google
-                </div>
-            </a>
-        ''', unsafe_allow_html=True)
+    # Ton logo GitHub
+    st.image("https://raw.githubusercontent.com/yolafi/Nox-project/main/Sans%20titre%203_20260312145229.png")
+    st.title("Espace Membre")
+
+    if st.session_state.user is None:
+        mode = st.radio("Menu", ["Se connecter", "S'inscrire"])
         
-        # Petit hack pour le test : si on revient avec un code dans l'URL
-        if "code" in st.query_params:
-            st.session_state.connected = True
-            st.rerun()
+        email_input = st.text_input("Email")
+        
+        if mode == "S'inscrire":
+            if st.button("Envoyer le code de validation"):
+                otp = str(random.randint(100000, 999999))
+                if send_otp(email_input, otp):
+                    st.session_state.otp = otp
+                    st.session_state.temp_email = email_input
+                    st.success("Code envoyé ! Vérifie tes mails.")
+            
+            code_verif = st.text_input("Entre le code reçu")
+            if code_verif and code_verif == st.session_state.get('otp'):
+                new_user = st.text_input("Choisis un Pseudo")
+                new_pass = st.text_input("Choisis un Mot de passe", type="password")
+                
+                if st.button("Créer mon compte"):
+                    # Lecture du fichier USERS via son URL
+                    df_u = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["url_users"])
+                    if new_user in df_u['username'].values:
+                        st.error("Ce pseudo est déjà utilisé !")
+                    else:
+                        # Ajout de l'utilisateur
+                        new_data = pd.DataFrame([{
+                            "email": st.session_state.temp_email,
+                            "username": new_user,
+                            "password": hash_password(new_pass)
+                        }])
+                        conn.create(spreadsheet=st.secrets["connections"]["gsheets"]["url_users"], data=new_data)
+                        st.success("Compte créé avec succès !")
+        
+        else: # Connexion
+            u_login = st.text_input("Pseudo")
+            p_login = st.text_input("Mot de passe", type="password")
+            if st.button("Se connecter"):
+                df_u = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["url_users"])
+                if u_login in df_u['username'].values:
+                    hashed_input = hash_password(p_login)
+                    # On récupère le mot de passe stocké
+                    stored_pwd = df_u[df_u['username'] == u_login]['password'].values[0]
+                    if hashed_input == stored_pwd:
+                        st.session_state.user = u_login
+                        st.rerun()
+                st.error("Pseudo ou mot de passe incorrect.")
     else:
-        st.success("Connecté")
+        st.write(f"Utilisateur : **{st.session_state.user}**")
         if st.button("Déconnexion"):
-            st.session_state.connected = False
+            st.session_state.user = None
             st.rerun()
 
-# --- RESTE DE L'INTERFACE ---
-st.title("NOX Database")
-st.divider()
+# --- CORPS DE LA PAGE (LES ITEMS) ---
+st.header("🏆 Classement NOX")
 
-if st.session_state.connected:
-    st.write("✅ Accès autorisé aux votes.")
-    # Ici tes données Google Sheets...
-else:
-    st.warning("🔒 Veuillez utiliser le bouton Google dans le menu à gauche.")
+try:
+    # Lecture du fichier ITEM NOX via son URL
+    df_items = conn.read(spreadsheet=st.secrets["connections"]["gsheets"]["url_items"])
+    
+    # On trie par score décroissant
+    df_sorted = df_items.sort_values(by="nox-score", ascending=False)
+
+    for index, row in df_sorted.iterrows():
+        with st.container(border=True):
+            c1, c2, c3 = st.columns([1, 3, 1])
+            with c1:
+                st.image(row['photo'], width=100)
+            with c2:
+                st.subheader(row['name'])
+                st.caption(f"Catégorie : {row['category']}")
+            with c3:
+                st.metric("Score", f"{row['nox-score']}")
+                if st.button("Voter", key=f"btn_{index}"):
+                    if st.session_state.user:
+                        st.balloons()
+                        st.success("Vote enregistré !")
+                    else:
+                        st.warning("Connecte-toi pour voter !")
+except Exception as e:
+    st.error("Erreur de chargement des items. Vérifie les liens URL dans tes secrets.")
