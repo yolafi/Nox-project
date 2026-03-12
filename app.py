@@ -39,18 +39,17 @@ try:
                         # Slider de note
             note = st.slider(f"Note pour {nom}", 0, 10, 5, key=f"s_{index}")
             
-            # --- CE QUI CHANGE : LA LOGIQUE DU BOUTON ---
-            if index in st.session_state.votes:
-                # Si déjà voté, on affiche un bouton vert (success) désactivé
-                st.button(f"Voté : {st.session_state.votes[index]}/10 ✅", key=f"b_{index}", disabled=True)
-            else:
-                # Sinon, bouton normal
-                if st.button(f"Valider {note}/10", key=f"b_{index}"):
-                    st.session_state.votes[index] = note
-                    st.balloons()
-                    st.rerun() 
-
+            # --- LOGIQUE DU CURSEUR ET DU BOUTON ---
+        if index in st.session_state.votes:
+            # Si déjà voté : on affiche seulement le résultat en vert, pas de curseur
+            st.success(f"Ton Nox-Score : {st.session_state.votes[index]}/10 ✅")
+        else:
+            # Si pas encore voté : on affiche le curseur et le bouton
+            note = st.slider(f"Note pour {nom}", 0, 10, 5, key=f"s_{index}")
             
+            if st.button(f"Valider {note}/10", key=f"b_{index}"):
+                st.session_state.votes[index] = note
+                st.rerun()
             st.divider()
 
 
