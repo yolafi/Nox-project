@@ -1,65 +1,99 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Configuration (onglet propre, sans émoji)
-st.set_page_config(page_title="NOX", layout="centered")
+# 1. CONFIGURATION DE LA PAGE
+st.set_page_config(
+    page_title="NOX Project",
+    page_icon="https://raw.githubusercontent.com/yolafi/Nox-project/main/Sans%20titre%203_20260312145229.png",
+    layout="wide"
+)
 
-# 2. Mémoire des votes (local au navigateur)
-if 'votes' not in st.session_state:
-    st.session_state.votes = {}
+# 2. RÉCUPÉRATION DES SECRETS (GOOGLE AUTH)
+# Note: Ces variables doivent exister dans Streamlit Cloud > Settings > Secrets
+try:
+    CLIENT_ID = st.secrets["google_client_id"]
+    CLIENT_SECRET = st.secrets["google_client_secret"]
+except:
+    st.warning("⚠️ Configuration Google Auth manquante dans les Secrets.")
 
-# 3. Récupération des données du Google Sheet
+# 3. CHARGEMENT DES DONNÉES GOOGLE SHEETS
 SHEET_ID = "16bSqmFKnS-Fex_-BP2pr7GaGqnd-gdZ2Q6rtqstddSc"
 CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
 @st.cache_data(ttl=60)
 def load_data():
-    return pd.read_csv(CSV_URL).dropna(subset=["Nom de l'objet"])
+    try:
+        data = pd.read_csv(CSV_URL)
+        return data.dropna(subset=["Nom de l'objet"])
+    except Exception as e:
+        st.error(f"Erreur de connexion au Google Sheet : {e}")
+        return pd.DataFrame()
 
-# 4. Interface
-try:
-    df = load_data()
+# 4. GESTION DE LA CONNEXION (SESSION STATE)
+if 'connected' not in st.session_state:
+    st.session_state.connected = False
 
-    # --- TON LOGO (Lien direct GitHub propre) ---
-    # J'ai utilisé le format 'raw' pour que l'image s'affiche à tous les coups
-    logo_url = "https://raw.githubusercontent.com/yolafi/Nox-project/main/Sans%20titre%203_20260312145229.png"
+# --- SIDEBAR (CONNEXION & LOGO) ---
+with st.sidebar:
+    # Petit logo en haut de la sidebar
+    st.image("https://raw.githubusercontent.com/yolafi/Nox-project/main/Sans%20titre%203_20260312145229.png", width=80)
+    st.title("NOX Account")
+    st.divider()
     
-    col1, col2, col3 = st.columns([1, 3, 1])
-    with col2:
-        st.image(logo_url, use_container_width=True)
+    if not st.session_state.connected:
+        st.write("Connectez-vous pour voter.")
+        if st.button("🔴 Sign in with Google"):
+            # Simulation du succès pour le moment
+            st.session_state.connected = True
+            st.rerun()
+    else:
+        st.success("Connecté à NOX")
+        if st.button("Se déconnecter"):
+            st.session_state.connected = False
+            st.rerun()
     
     st.divider()
+    st.caption("Version 1.0 - NOX Project")
 
+# --- INTERFACE PRINCIPALE ---
+# Affichage du logo et du titre sur la page
+col_logo, col_titre = st.columns([1, 6])
+with col_logo:
+    st.image("https://raw.githubusercontent.com/yolafi/Nox-project/main/Sans%20titre%203_20260312145229.png", width=100)
+with col_titre:
+    st.title("NOX - Database & Voting")
+
+st.divider()
+
+# Chargement du DataFrame
+df = load_data()
+
+if not df.empty:
+    # Boucle pour afficher chaque objet du Google Sheet
     for index, row in df.iterrows():
         name = row["Nom de l'objet"]
-        image_url = row["Lien vidéo (ou photo)"]
-        global_score = row["Nox-score"]
-
-        with st.container():
-            # Image de l'objet
-            try:
-                st.image(image_url, use_container_width=True)
-            except:
-                st.write(f"🖼️ {name}")
-
-            st.subheader(name)
+        img_url = row["Lien vidéo (ou photo)"]
+        score = row["Nox-score"]
+        
+        with st.container(border=True):
+            c1, c2 = st.columns([1, 2])
             
-            # Score global
-            st.metric(label="Global NOX-SCORE", value=f"{global_score}/10")
-
-            # Système de vote
-            if index in st.session_state.votes:
-                st.success(f"Your Score: {st.session_state.votes[index]}/10 ✅")
-                if st.button(f"Reset vote", key=f"reset_{index}"):
-                    del st.session_state.votes[index]
-                    st.rerun()
-            else:
-                note = st.slider(f"Rate", 0, 10, 5, key=f"s_{index}")
-                if st.button(f"Submit {note}/10", key=f"b_{index}"):
-                    st.session_state.votes[index] = note
-                    st.rerun()
+            with c1:
+                # Affichage de l'image de l'objet
+                st.image(img_url, use_container_width=True)
             
-            st.divider()
+            with c2:
+                st.subheader(name)
+                st.metric("Global NOX-SCORE", f"{score}/10")
+                
+                # Système de vote (uniquement si connecté)
+                if st.session_state.connected:
+                    vote = st.slider(f"Votre note pour {name}", 0, 10, 5, key=f"slider_{index}")
+                    if st.button(f"Voter {vote}/10", key=f"btn_{index}"):
+                        st.balloons()
+                        st.success(f"Vote enregistré pour {name} !")
+                else:
+                    st.info("💡 Connectez-vous dans le menu à gauche pour voter.")
 
-except Exception as e:
-    st.error("Connection error. Check your Google Sheet.")
+else:
+    st.info("Aucune donnée trouvée dans le Google Sheet.")
