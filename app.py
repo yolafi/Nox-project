@@ -33,12 +33,23 @@ try:
             st.subheader(nom)
             st.write(f"*{description}*")
             
-            # Slider de note
+                        # Slider de note
             note = st.slider(f"Note pour {nom}", 0, 10, 5, key=f"s_{index}")
             
-            if st.button(f"Valider {note}/10", key=f"b_{index}"):
-                st.success(f"Voté !")
+            # --- CE QUI CHANGE : LA LOGIQUE DU BOUTON ---
+            if index in st.session_state.votes:
+                # Si déjà voté, on affiche un bouton vert (success) désactivé
+                st.button(f"Voté : {st.session_state.votes[index]}/10 ✅", key=f"b_{index}", disabled=True)
+            else:
+                # Sinon, bouton normal
+                if st.button(f"Valider {note}/10", key=f"b_{index}"):
+                    st.session_state.votes[index] = note
+                    st.balloons()
+                    st.rerun() 
+
+            
             st.divider()
+
 
 except Exception as e:
     st.error("Erreur de lecture. Vérifie que ton Sheet est bien en 'Tous les utilisateurs disposant du lien'.")
