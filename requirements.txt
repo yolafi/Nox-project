@@ -1,3 +1,4 @@
 pandas
 google-auth-oauthlib
 streamlit
+altair
