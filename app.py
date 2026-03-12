@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 
+if 'votes' not in st.session_state:
+    st.session_state.votes = {}
+
 st.set_page_config(page_title="NOX", page_icon="🌑")
 
 # --- CONNEXION ---
@@ -32,10 +35,6 @@ try:
             
             st.subheader(nom)
             st.write(f"*{description}*")
-
-if 'votes' not in st.session_state:
-    st.session_state.votes = {}
-
             
                         # Slider de note
             note = st.slider(f"Note pour {nom}", 0, 10, 5, key=f"s_{index}")
