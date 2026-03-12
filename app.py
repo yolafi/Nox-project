@@ -1,15 +1,14 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Configuration de la page (l'icône de l'onglet reste la lune pour le rappel)
+# 1. Config de la page
 st.set_page_config(page_title="NOX", page_icon="🌑", layout="centered")
 
-# 2. Initialisation du stockage des votes en session
+# 2. Mémoire des votes (local)
 if 'votes' not in st.session_state:
     st.session_state.votes = {}
 
-# 3. Connexion au Google Sheet
-# Remplace bien par ton ID si tu le changes, mais celui-là semble être le bon
+# 3. Récupération des données
 SHEET_ID = "16bSqmFKnS-Fex_-BP2pr7GaGqnd-gdZ2Q6rtqstddSc"
 CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 
@@ -17,15 +16,13 @@ CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
 def load_data():
     return pd.read_csv(CSV_URL).dropna(subset=["Nom de l'objet"])
 
-# 4. Interface principale
+# 4. Interface
 try:
     df = load_data()
 
-    # --- AFFICHAGE DE TON LOGO UNIQUEMENT ---
-    # Centrage du logo
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.image("https://i.ibb.co/cK88yMMn/16780.png", use_container_width=True)
+    # --- TON LOGO ---
+    # J'utilise un lien direct stable pour ton image
+    st.image("https://images2.imgbox.com/71/6a/L67n9XyJ_o.png", use_container_width=True)
     
     st.divider()
 
@@ -35,28 +32,25 @@ try:
         global_score = row["Nox-score"]
 
         with st.container():
-            # Affichage de l'image de l'item
+            # Image de l'item
             try:
                 st.image(image_url, use_container_width=True)
             except:
                 st.write("⚠️ Image not available")
 
             st.subheader(name)
-
-            # Affichage du score global (issu du Google Sheet)
+            
+            # Affichage du score actuel du Sheet
             st.metric(label="Global NOX-SCORE", value=f"{global_score}/10")
 
-            # Logique de vote personnelle
+            # Système de vote
             if index in st.session_state.votes:
                 st.success(f"Your Score: {st.session_state.votes[index]}/10 ✅")
-                
-                # Bouton pour annuler et revoter
                 if st.button(f"Reset my vote", key=f"reset_{index}"):
                     del st.session_state.votes[index]
                     st.rerun()
             else:
-                # Curseur de vote
-                note = st.slider(f"Rate this item", 0, 10, 5, key=f"s_{index}")
+                note = st.slider(f"Rate", 0, 10, 5, key=f"s_{index}")
                 if st.button(f"Submit {note}/10", key=f"b_{index}"):
                     st.session_state.votes[index] = note
                     st.rerun()
@@ -64,4 +58,4 @@ try:
             st.divider()
 
 except Exception as e:
-    st.error("Connection error. Please check your Google Sheet settings.")
+    st.error("Connection error. Check your Sheet.")
