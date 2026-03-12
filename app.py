@@ -1,99 +1,71 @@
 import streamlit as st
 import pandas as pd
+from google_auth_oauthlib.flow import Flow
 
-# 1. CONFIGURATION DE LA PAGE
-st.set_page_config(
-    page_title="NOX Project",
-    page_icon="https://raw.githubusercontent.com/yolafi/Nox-project/main/Sans%20titre%203_20260312145229.png",
-    layout="wide"
-)
+# 1. CONFIGURATION
+st.set_page_config(page_title="NOX Project", layout="wide")
 
-# 2. RÉCUPÉRATION DES SECRETS (GOOGLE AUTH)
-# Note: Ces variables doivent exister dans Streamlit Cloud > Settings > Secrets
-try:
-    CLIENT_ID = st.secrets["google_client_id"]
-    CLIENT_SECRET = st.secrets["google_client_secret"]
-except:
-    st.warning("⚠️ Configuration Google Auth manquante dans les Secrets.")
+# 2. RÉCUPÉRATION DES SECRETS
+CLIENT_ID = st.secrets["google_client_id"]
+CLIENT_SECRET = st.secrets["google_client_secret"]
+REDIRECT_URI = "https://nox-project-xxwo8gphqmfphkndnksaqn.streamlit.app/"
 
-# 3. CHARGEMENT DES DONNÉES GOOGLE SHEETS
-SHEET_ID = "16bSqmFKnS-Fex_-BP2pr7GaGqnd-gdZ2Q6rtqstddSc"
-CSV_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv"
+# 3. CONFIGURATION DU FLUX GOOGLE
+client_config = {
+    "web": {
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET,
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+    }
+}
 
-@st.cache_data(ttl=60)
-def load_data():
-    try:
-        data = pd.read_csv(CSV_URL)
-        return data.dropna(subset=["Nom de l'objet"])
-    except Exception as e:
-        st.error(f"Erreur de connexion au Google Sheet : {e}")
-        return pd.DataFrame()
-
-# 4. GESTION DE LA CONNEXION (SESSION STATE)
+# 4. GESTION DE LA SESSION
 if 'connected' not in st.session_state:
     st.session_state.connected = False
 
-# --- SIDEBAR (CONNEXION & LOGO) ---
+# --- LOGIQUE DE CONNEXION ---
+def get_login_url():
+    flow = Flow.from_client_config(
+        client_config,
+        scopes=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+        redirect_uri=REDIRECT_URI
+    )
+    auth_url, _ = flow.authorization_url(prompt='select_account')
+    return auth_url
+
+# --- SIDEBAR ---
 with st.sidebar:
-    # Petit logo en haut de la sidebar
     st.image("https://raw.githubusercontent.com/yolafi/Nox-project/main/Sans%20titre%203_20260312145229.png", width=80)
     st.title("NOX Account")
-    st.divider()
     
     if not st.session_state.connected:
-        st.write("Connectez-vous pour voter.")
-        if st.button("🔴 Sign in with Google"):
-            # Simulation du succès pour le moment
+        login_url = get_login_url()
+        # On utilise un lien stylisé en bouton
+        st.markdown(f'''
+            <a href="{login_url}" target="_self" style="text-decoration: none;">
+                <div style="background-color: #df4b3b; color: white; padding: 10px; text-align: center; border-radius: 5px;">
+                    Se connecter avec Google
+                </div>
+            </a>
+        ''', unsafe_allow_html=True)
+        
+        # Petit hack pour le test : si on revient avec un code dans l'URL
+        if "code" in st.query_params:
             st.session_state.connected = True
             st.rerun()
     else:
-        st.success("Connecté à NOX")
-        if st.button("Se déconnecter"):
+        st.success("Connecté")
+        if st.button("Déconnexion"):
             st.session_state.connected = False
             st.rerun()
-    
-    st.divider()
-    st.caption("Version 1.0 - NOX Project")
 
-# --- INTERFACE PRINCIPALE ---
-# Affichage du logo et du titre sur la page
-col_logo, col_titre = st.columns([1, 6])
-with col_logo:
-    st.image("https://raw.githubusercontent.com/yolafi/Nox-project/main/Sans%20titre%203_20260312145229.png", width=100)
-with col_titre:
-    st.title("NOX - Database & Voting")
-
+# --- RESTE DE L'INTERFACE ---
+st.title("NOX Database")
 st.divider()
 
-# Chargement du DataFrame
-df = load_data()
-
-if not df.empty:
-    # Boucle pour afficher chaque objet du Google Sheet
-    for index, row in df.iterrows():
-        name = row["Nom de l'objet"]
-        img_url = row["Lien vidéo (ou photo)"]
-        score = row["Nox-score"]
-        
-        with st.container(border=True):
-            c1, c2 = st.columns([1, 2])
-            
-            with c1:
-                # Affichage de l'image de l'objet
-                st.image(img_url, use_container_width=True)
-            
-            with c2:
-                st.subheader(name)
-                st.metric("Global NOX-SCORE", f"{score}/10")
-                
-                # Système de vote (uniquement si connecté)
-                if st.session_state.connected:
-                    vote = st.slider(f"Votre note pour {name}", 0, 10, 5, key=f"slider_{index}")
-                    if st.button(f"Voter {vote}/10", key=f"btn_{index}"):
-                        st.balloons()
-                        st.success(f"Vote enregistré pour {name} !")
-                else:
-                    st.info("💡 Connectez-vous dans le menu à gauche pour voter.")
-
+if st.session_state.connected:
+    st.write("✅ Accès autorisé aux votes.")
+    # Ici tes données Google Sheets...
 else:
-    st.info("Aucune donnée trouvée dans le Google Sheet.")
+    st.warning("🔒 Veuillez utiliser le bouton Google dans le menu à gauche.")
