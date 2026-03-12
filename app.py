@@ -37,7 +37,6 @@ try:
             note = st.slider(f"Note pour {nom}", 0, 10, 5, key=f"s_{index}")
             
             if st.button(f"Valider {note}/10", key=f"b_{index}"):
-                st.balloons()
                 st.success(f"Voté !")
             st.divider()
 
