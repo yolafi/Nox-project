@@ -2,3 +2,4 @@ pandas
 google-auth-oauthlib
 streamlit
 altair==4.2.2.
+st-gsheets-connection
